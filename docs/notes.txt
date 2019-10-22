@@ -1,0 +1,17 @@
+-1pt for "ignoring globals in C interface?"
+    to avoid? there's something on moodle for that, I guess
+-1pt for storing in posets more than 1 instance of specific string??
+    to avoid? ..
+interface file:
+    include guards (seem. actual, not #pragma once)
+    name mangling? -> extern "C" in include for a proper C interface
+    namespaces?
+    bool: different in C and C++, like #ifdef _cplusplus?? 
+    also, different libraries (like <cstdlib> and <stdlib.h>)
+also,
+    use .find instead of .at, if used .find prev.
+    anonymous namespaces -> allows to hide stuff from "meta-global" namespace
+:: NDEBUG need only toggle cerr? and assert, nothing more
+on unordered containers: yes?
+no pollution in .h, like using namespace;
+        
