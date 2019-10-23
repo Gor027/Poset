@@ -10,18 +10,18 @@ using poset_value_t = char const*;
 // Onto the data types proper.
 
 // If I remember correctly, we are specifically not to store more than one copy of any poset value. That, obviously,
-// poses some difficulties; my idea is that we could perhaps introduce some injective map from the values to it's
-// representative, presumably having lower memory overhead (I chose uint32_t, since it holds ~4*10^9 values, so
-// enough for most uses). Then, we essentially map such values to the representatives via value_repr_store_t and
+// poses some difficulties; my idea is that we could perhaps introduce some injective map from the values to their
+// representatives, presumably having lower memory overhead (I chose uint32_t, since it holds ~4*10^9 values,
+// enough for most uses). Then, we essentially map values to the representatives via value_repr_store_t and
 // operate on those. As far as uniqueness, I was thinking about keeping a counter that one would increase when
 // inserting values, and when the counter would reach its' maximum (or rather IF, since that max is ~4*10^9), we'd
-// introduce some sort of "reordering", like reinserting all the keys present, which would be amortized O(1), and
-// usually 0 since we usually would not reach ~4*10^9 insertions.
+// introduce some sort of "reordering", like reinserting all the keys present, which would be amortized O(1) at most,
+// and usually 0 since we usually would not reach ~4*10^9 insertions.
 using poset_value_instance_t = std::string;
 using value_repr_t = uint32_t;
 using value_repr_store_t = std::tuple<value_repr_t, std::unordered_map<poset_value_instance_t, value_repr_t>>;
 
-// As far as the posets themselves are concerned, it's clear that they are disjoint sets of DAGs; I am thinking about
+// As far as the posets themselves are concerned, it's clear that they are sets of DAGs; I am thinking about
 // simply keeping, for each item in poset, a set of their successors, and operate on poset that way. The whole
 // structure, i.e. posets_t, would be an aforementioned injective map and the assoc from posets ids' to appropriate
 // posets. Now, in poset_new we essentially get ids from thin air, so I recommend using a counter or something (with
@@ -33,7 +33,9 @@ using posets_t = std::tuple<poset_id_t, value_repr_store_t, std::unordered_map<p
 // additional arguments). Now, there may (and probably will) be some linking issues, but I shall have to research that.
 posets_t posets;
 
-// Inasfar as the impls are concerned, we shall discuss that later.
+// Inasfar as the impls are concerned, we shall discuss that later, but new, delete, size, insert and remove seem
+// straightforward (inexcept for the whole counter mechanic), add and del need to preserve "posetness", and test is
+// presumably just BST.
 
 unsigned long jnp1::poset_new(void) {
     return 0;
