@@ -21,21 +21,21 @@ using poset_value_instance_t = std::string;
 using value_repr_t = uint32_t;
 using value_repr_store_t = std::tuple<value_repr_t, std::unordered_map<poset_value_instance_t, value_repr_t>>;
 
-// As far as the posets themselves are concerned, it's clear that they are sets of DAGs; I am thinking about
-// simply keeping, for each item in poset, a set of their successors, and operate on poset that way. The whole
-// structure, i.e. posets_t, would be an aforementioned injective map and the assoc from posets ids' to appropriate
-// posets. Now, in poset_new we essentially get ids from thin air, so I recommend using a counter or something (with
-// all the aforementioned issues.
+// As for the posets, it's clear that they are sets of DAGs; I am thinking about simply keeping, for each item in poset,
+// a set of their successors, and operate on poset that way. The whole structure, i.e. posets_t, would be an
+// aforementioned injective map and the assoc from posets ids' to appropriate posets. Now, in poset_new we essentially
+// get ids from thin air, so I recommend using a counter or something (with all the aforementioned issues).
 using poset_t = std::unordered_map<value_repr_t, std::unordered_set<value_repr_t>>;
 using posets_t = std::tuple<poset_id_t, value_repr_store_t, std::unordered_map<poset_id_t, poset_t>>;
 
 // That is the main data structure for our problem (we must use globals since the interface does not accomodate any
-// additional arguments). Now, there may (and probably will) be some linking issues, but I shall have to research that.
+// additional arguments). Now, there may (and probably will) be some linking issues, but I'll have to research
+// that.
 posets_t posets;
 
 // Inasfar as the impls are concerned, we shall discuss that later, but new, delete, size, insert and remove seem
 // straightforward (inexcept for the whole counter mechanic), add and del need to preserve "posetness", and test is
-// presumably just BST.
+// presumably just BFS.
 
 unsigned long jnp1::poset_new(void) {
     return 0;
