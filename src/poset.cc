@@ -2,40 +2,56 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <string>
+#include <tuple>
 
-// These types are prescribed by the interface.
+// We shall start with the interface types, namely ids and values; since char const* cannot be stored in the usual
+// way, we shall store proxies for them (in this case, STL strings).
 using poset_id_t = unsigned long;
-using poset_value_t = char const*;
+using value_t = char const*;
+using persistent_value_t = std::string;
 
-// Onto the data types proper.
+// Now, onto the overall structure of the project.
+//     We shall maintain some "program state" variable, i.e. posets_t for all stored posets and auxiliary stuff. Given
+// how we need to come up with poset id's from essentially thin air in poset_new, we need a method for generating
+// unique poset_id_t's. I propose following scheme: to store a counter of some type convertable to poset_id_t, and when
+// adding new posets we would yield the counter's value and increment it - of course, then the generated id's are unique.
+// That, however, presents an issue: what to do when counter reaches its max value? Then, I suppose, we could reassign
+// ids - practically, however, if the counter is uint64_t, then we'd have to insert ~1.8*10^19 items to reach the
+// max, so it may be altogether unnecessary of us to even concern ourselves with reassignments etc. We may discuss whether
+// we want theoretical correctness or practical convenience later on.
+//     So, posets_t is essentially counter + map from poset ids' to posets. We are, clearly, lacking structure for a
+// poset. In general, we could consider it to be a graph of some sort, i.e. something corresponding to a map from node
+// id to a store of successors' ids, and merely ensure that the operations modifying the poset preserve its "posetness"
+// Naively, we could just consider ids to be persistent_value_t's. We are, however, given an explicit requirement for
+// storing the values only once across the program. My idea, then, is to represent values by some other type (by setting
+// node id's type to that type and introducing a map from values to the representatives. We encounter, once again, a
+// problem of taking representatives from thin air, but we can again utilise the counter system. Therefore, have:
 
-// If I remember correctly, we are specifically not to store more than one copy of any poset value. That, obviously,
-// poses some difficulties; my idea is that we could perhaps introduce some injective map from the values to their
-// representatives, presumably having lower memory overhead (I chose uint32_t, since it holds ~4*10^9 values,
-// enough for most uses). Then, we essentially map values to the representatives via value_repr_store_t and
-// operate on those. As far as uniqueness, I was thinking about keeping a counter that one would increase when
-// inserting values, and when the counter would reach its' maximum (or rather IF, since that max is ~4*10^9), we'd
-// introduce some sort of "reordering", like reinserting all the keys present, which would be amortized O(1) at most,
-// and usually 0 since we usually would not reach ~4*10^9 insertions.
-using poset_value_instance_t = std::string;
-using value_repr_t = uint32_t;
-using value_repr_store_t = std::tuple<value_repr_t, std::unordered_map<poset_value_instance_t, value_repr_t>>;
-
-// As for the posets, it's clear that they are sets of DAGs; I am thinking about simply keeping, for each item in poset,
-// a set of their successors, and operate on poset that way. The whole structure, i.e. posets_t, would be an
-// aforementioned injective map and the assoc from posets ids' to appropriate posets. Now, in poset_new we essentially
-// get ids from thin air, so I recommend using a counter or something (with all the aforementioned issues).
+using value_repr_t = uint64_t;
 using poset_t = std::unordered_map<value_repr_t, std::unordered_set<value_repr_t>>;
-using posets_t = std::tuple<poset_id_t, value_repr_store_t, std::unordered_map<poset_id_t, poset_t>>;
 
-// That is the main data structure for our problem (we must use globals since the interface does not accomodate any
-// additional arguments). Now, there may (and probably will) be some linking issues, but I'll have to research
-// that.
-posets_t posets;
+enum { _repr_counter = 0, _names_to_repr = 1 };
+using names_store_t = std::tuple<value_repr_t, std::unordered_map<persistent_value_t, value_repr_t>>;
 
-// Inasfar as the impls are concerned, we shall discuss that later, but new, delete, size, insert and remove seem
-// straightforward (inexcept for the whole counter mechanic), add and del need to preserve "posetness", and test is
-// presumably just BFS.
+enum { _id_counter = 0, _id_to_poset = 1 };
+using posets_store_t = std::tuple<poset_id_t, std::unordered_map<poset_id_t, poset_t>>;
+
+enum { _names_store = 0, _posets_store = 1 };
+using posets_t = std::tuple<names_store_t, posets_store_t>;
+
+// Some notes about implementation proper: in the task statement, we are to ensure that name is stored only once for
+// each poset, here we store only once globally. Now, this approach seems better, but perhaps we could ascertain that
+// on the forum. Also, if you wonder what are enums doing here, it's a trick for "more semantic" extraction of data
+// from tuples, as opposed to passing magic numbers to std::get<...>. (As an alternative, we could use structured
+// bindings, when we extract everything from the tuple).
+
+// The "global state" of our program; we use static in accordance to what I was talking about earlier about not
+// polluting linker's namespaces. Now, I'm pretty sure that's how you do it, but I'd have to check up on that some more.
+// Also, functions extraneous to the interface should also be declared static, for the same reason.
+static posets_t posets = {
+    { 0, {} }, // Names store initialization
+    { 0, {} }  // Posets store initialization
+};
 
 unsigned long jnp1::poset_new(void) {
     return 0;
