@@ -13,10 +13,7 @@ namespace {
 
     template<typename ArgType>
     void push_proper_str(std::ostream& os, ArgType const& arg) {
-        if constexpr(std::is_null_pointer<ArgType>::value) {
-            os << "NULL";
-        }
-        else if constexpr(std::is_pointer<ArgType>::value) {
+        if constexpr(std::is_pointer<ArgType>::value) {
             os << (arg ? arg : "NULL");
         }
         else {
@@ -24,10 +21,9 @@ namespace {
         }
     }
 
-    template<typename First, typename Second, typename... Tail>
-    void push_proper_str(std::ostream& os, First const& first, Second const& second, Tail const&... tail) {
-        push_proper_str(os, first);
-        push_proper_str(os, second, tail...);
+    template<typename First, typename... Tail>
+    void push_proper_str(std::ostream& os, First const& first, Tail const&... tail) {
+        (push_proper_str(os, first), ..., push_proper_str(os, tail));
     }
 
     template<typename... ArgTypes>
@@ -54,11 +50,9 @@ namespace {
         }
     }
 
-    template <typename First, typename Second, typename... Tail>
-    void print_parameters(First const& first, Second const& second, Tail const&... tail) {
-        print_parameters(first);
-        std::cerr << ", ";
-        print_parameters(second, tail...);
+    template <typename First, typename... Tail>
+    void print_parameters(First const& first, Tail const&... tail) {
+        (print_parameters(first), ..., ( std::cerr << ", ", print_parameters(tail)) );
     }
 
     template<typename... ArgTypes>
@@ -83,11 +77,11 @@ namespace {
     using value_repr_t = uint64_t;
     using names_assoc_t = std::unordered_map<persistent_value_t, value_repr_t>;
 
-    enum { _predecessors = 0, _successors = 1 };
+//    enum { _predecessors = 0, _successors = 1 };
     using node_t = std::pair<std::unordered_set<value_repr_t>, std::unordered_set<value_repr_t>>;
 
     using nodes_t = std::unordered_map<value_repr_t, node_t>;
-    enum { _value_repr_gen = 0, _names_assoc = 1, _nodes = 2 };
+//    enum { _value_repr_gen = 0, _names_assoc = 1, _nodes = 2 };
     using poset_t = std::tuple<value_repr_t, names_assoc_t, nodes_t>;
 
     using posets_t = std::unordered_map<poset_id_t, poset_t>;
@@ -127,7 +121,7 @@ namespace {
     }
 
     size_t true_poset_size(char const* method, unsigned long id) {
-        auto& nodes = std::get<_nodes>(seek_poset(id)->second);
+        auto& nodes = std::get<nodes_t>(seek_poset(id)->second);
         auto size = nodes.size();
 
         log(method,
@@ -236,8 +230,8 @@ namespace {
         return false;
     }
 
-    void add_cartesian_product(nodes_t& nodes, std::unordered_set<value_repr_t>& pred,
-            std::unordered_set<value_repr_t>& succ) {
+    void add_cartesian_product(nodes_t& nodes, std::unordered_set<value_repr_t> const& pred,
+            std::unordered_set<value_repr_t> const& succ) {
         for (auto const& p: pred) {
             for (auto const& s: succ) {
                 nodes.at(p).second.insert(s);
@@ -268,10 +262,9 @@ namespace {
         validate("value1", value1, "value2", value2);
 
         auto poset_iter = seek_poset(id);
-        auto const& nodes = std::get<_nodes>(poset_iter->second);
+        auto const& nodes = std::get<nodes_t>(poset_iter->second);
         auto [node1_iterset, node2_iterset] = seek_nodes(poset_iter, value1, value2);
-        auto [repr1_iter, node1_iter] = node1_iterset;
-        auto [repr2_iter, node2_iter] = node2_iterset;
+        auto node1_iter = node1_iterset.second, node2_iter = node2_iterset.second;
 
         if (node2_iter->first == node1_iter->first ||
                 internal_poset_test(nodes, node1_iter, node2_iter) ||
@@ -297,8 +290,7 @@ namespace {
 
         auto poset_iter = seek_poset(id);
         auto [node1_iterset, node2_iterset] = seek_nodes(poset_iter, value1, value2);
-        auto [repr1_iter, node1_iter] = node1_iterset;
-        auto [repr2_iter, node2_iter] = node2_iterset;
+        auto node1_iter = node1_iterset.second, node2_iter = node2_iterset.second;
 
         auto& [pred1, succ1] = node1_iter->second;
         auto& [pred2, succ2] = node2_iter->second;
@@ -312,12 +304,11 @@ namespace {
                 " cannot be deleted"));
         }
         auto node2_in_succ1_iter = succ1.find(node2_iter->first);
-        auto& nodes = std::get<_nodes>(poset_iter->second);
+        auto& nodes = std::get<nodes_t>(poset_iter->second);
 
         pred2.erase(node1_in_pred2_iter);
         succ1.erase(node2_in_succ1_iter);
-        add_cartesian_product(nodes, pred1, succ1);
-        add_cartesian_product(nodes, pred2, succ2);
+        add_cartesian_product(nodes, decltype(succ2) { node1_iter->first }, succ2);
 
         log(method,
             ": poset ", id,
@@ -330,7 +321,7 @@ namespace {
         validate("value1", value1, "value2", value2);
 
         auto poset_iter = seek_poset(id);
-        auto const& nodes = std::get<_nodes>(poset_iter->second);
+        auto const& nodes = std::get<nodes_t>(poset_iter->second);
         auto [node1_iterset, node2_iterset] = seek_nodes(poset_iter, value1, value2);
 
         auto rel_exists = internal_poset_test(nodes, node1_iterset.second, node2_iterset.second);
@@ -374,7 +365,7 @@ template<typename... ArgTypes>
 void universal_proc(char const* method, void(*proc)(char const*, ArgTypes...), ArgTypes... args) {
     try {
         print_signature(method, args...);
-        return proc(method, args...);
+        proc(method, args...);
     }
     catch (poset_exn const& exn) {
         log(method, ": ", exn.what());
@@ -387,7 +378,7 @@ void universal_proc(char const* method, void(*proc)(char const*, ArgTypes...), A
 }
 
 unsigned long jnp1::poset_new() {
-    return universal_proc<unsigned long>("poset_new", &true_poset_new, (unsigned long)0);
+    return universal_proc("poset_new", &true_poset_new, (unsigned long)0);
 }
 
 void jnp1::poset_delete(unsigned long id) {

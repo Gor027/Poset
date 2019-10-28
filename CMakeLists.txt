@@ -17,3 +17,4 @@ endfunction()
 
 make_target(example1 poset_example1.c)
 make_target(example2 poset_example2.cc)
+make_target(transitive transitive.cc)
