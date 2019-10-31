@@ -7,6 +7,7 @@
 #include <iostream>
 #include <queue>
 #include <array>
+#include <algorithm>
 
 namespace {
     // We shall start with type decls and static vars.
@@ -285,18 +286,6 @@ namespace {
         return false;
     }
 
-    // This procedure, given two sets of element reps (pred, succ), adds relation between every pair in pred x succ
-    // (which is to say, given relation R, we get R \cups pred x succ).
-    void add_cartesian_product(nodes_t& nodes, std::unordered_set<value_repr_t> const& pred,
-            std::unordered_set<value_repr_t> const& succ) {
-        for (auto const& p: pred) {
-            for (auto const& s: succ) {
-                nodes.at(p).second.insert(s);
-                nodes.at(s).first.insert(p);
-            }
-        }
-    }
-
     bool true_poset_remove(unsigned long id, char const* value) {
         validate("value", value);
 
@@ -307,8 +296,24 @@ namespace {
         // In our graph formulation, value removal is identical to removing a node from the graph: of course,
         // however, merely removing the node is insufficient, as some p \in P(v) and some s \in S(v) may be in
         // relation by the virtue of transitivity through v, and not be "directly in relation" (i.e. connected on
-        // graph), wherefore we must preemptively add all such relations.
-        add_cartesian_product(nodes, node_iter->second.first, node_iter->second.second);
+        // graph), wherefore we must preemptively add all such relations. We must also remove v from the successor
+        // sets of predecessors and predecesor sets of successors.
+
+        for (auto const& pred: node_iter->second.first) {
+            auto& pred_node = nodes.at(pred);
+            pred_node.second.erase(node_iter->first);
+
+            for (auto const& succ: node_iter->second.second) {
+                auto& succ_node = nodes.at(succ);
+                pred_node.second.insert(succ);
+                succ_node.first.insert(pred);
+            }
+        }
+        for (auto const& succ: node_iter->second.second) {
+            auto& succ_node = nodes.at(succ);
+            succ_node.first.erase(node_iter->first);
+        }
+
         nodes.erase(node_iter);
         names_assoc.erase(repr_iter);
 
@@ -323,9 +328,11 @@ namespace {
         validate("value1", value1, "value2", value2);
 
         auto poset_iter = seek_poset(id);
-        auto const& nodes = std::get<nodes_t>(poset_iter->second);
+        auto& nodes = std::get<nodes_t>(poset_iter->second);
         auto [node1_iterset, node2_iterset] = seek_nodes(poset_iter, value1, value2);
         auto node1_iter = node1_iterset.second, node2_iter = node2_iterset.second;
+        auto& succ1 = node1_iter->second.second;
+        auto& pred2 = node2_iter->second.first;
 
         // The relation (u, v) may not be added if either it is present (by virtue of reflexivity (1) or by being
         // path-connected on the poset DAG (2)), or if (v, u) is present and u != v (in which case we would break
@@ -339,8 +346,8 @@ namespace {
                 " cannot be added"));
         }
 
-        node1_iter->second.second.insert(node2_iter->first);
-        node2_iter->second.first.insert(node1_iter->first);
+        succ1.insert(node2_iter->first);
+        pred2.insert(node1_iter->first);
 
         log(method,
             ": poset ", id,
@@ -390,8 +397,18 @@ namespace {
             raise_error();
         }
 
-        // Through a similar argument as with poset_remove, we must add relation between u and all S(v)
-        add_cartesian_product(nodes, decltype(succ2) { node1_iter->first }, succ2);
+        // Through a similar argument as with poset_remove, we must add relation between u and all S(v) along with
+        // all P(u) and v
+        for (auto const& succ: succ2) {
+            auto& succ_node = nodes.at(succ);
+            succ1.insert(succ);
+            succ_node.first.insert(node1_iter->first);
+        }
+        for (auto const& pred: pred1) {
+            auto& pred_node = nodes.at(pred);
+            pred2.insert(pred);
+            pred_node.second.insert(node2_iter->first);
+        }
 
         log(method,
             ": poset ", id,
